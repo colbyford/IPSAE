@@ -33,6 +33,7 @@
 #
 # All output files will be in same path/folder as cif or pdb file
 
+import importlib
 import os
 import sys
 
@@ -41,7 +42,14 @@ import sys
 # takes precedence over this script for "import ipsae".
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 
-from ipsae.cli import main  # noqa: E402
+if __name__ == "ipsae":
+    # This file was imported as "import ipsae" (repository root on sys.path).
+    # Hand over to the real package in src/ipsae so that the public API and
+    # submodules (ipsae.api, ipsae.cli, ...) are available.
+    del sys.modules["ipsae"]
+    sys.modules["ipsae"] = importlib.import_module("ipsae")
+else:
+    from ipsae.cli import main  # noqa: E402
 
 if __name__ == "__main__":
     sys.exit(main())
