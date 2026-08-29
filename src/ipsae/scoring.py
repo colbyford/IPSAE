@@ -57,7 +57,15 @@ def calc_d0(L, pair_type):
 
 
 def calc_d0_array(L, pair_type):
-    """Array version of calc_d0; accepts any array-like of residue counts."""
+    """Array version of calc_d0; accepts any array-like of residue counts.
+
+    Note: this reproduces the original script exactly, including a small
+    inconsistency with the scalar calc_d0 at L == 27 (array: 1.0385,
+    scalar: 1.0). The clamp below maps every L <= 26 to d0 = 1.0, but the
+    formula is still applied at L == 27, whereas the scalar version returns
+    the minimum for L <= 27. Kept as-is so that by-residue output files
+    remain byte-identical to the original ipsae.py.
+    """
     # Convert L to a NumPy array if it isn't already one (enables flexibility in input types)
     L = np.array(L, dtype=float)
     L = np.maximum(26, L)
