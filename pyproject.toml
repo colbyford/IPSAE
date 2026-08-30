@@ -5,12 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ipsae"
 version = "4.1.0"
-description = "ipSAE: scoring pairwise protein-protein interactions in AlphaFold2, AlphaFold3, and Boltz structure predictions"
+description = "ipSAE: scoring pairwise protein-protein interactions in AlphaFold and Boltz structure predictions"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 authors = [
     { name = "Roland L. Dunbrack Jr." },
+    { name = "Colby T. Ford" },
 ]
 keywords = [
     "alphafold",
