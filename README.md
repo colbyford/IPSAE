@@ -57,19 +57,19 @@ result = score_interactions("fold_aurka_tpx2_full_data_0.json",
                             "fold_aurka_tpx2_model_0.cif",
                             pae_cutoff=10, dist_cutoff=10)
 
-# chain-pair records (asym and max rows, same values as the .txt output)
+## chain-pair records (asym and max rows, same values as the .txt output)
 for record in result.chain_pairs:
     print(record["Chn1"], record["Chn2"], record["Type"], record["ipSAE"])
 
-# direct score lookup: metric is any output column (ipSAE, ipSAE_d0chn,
-# ipSAE_d0dom, ipTM_af, ipTM_d0chn, pDockQ, pDockQ2, LIS, ...)
+## direct score lookup: metric is any output column (ipSAE, ipSAE_d0chn,
+## ipSAE_d0dom, ipTM_af, ipTM_d0chn, pDockQ, pDockQ2, LIS, ...)
 print(result.get_score("A", "B", "ipSAE"))                    # max of both directions
 print(result.get_score("A", "B", "ipSAE", score_type="asym")) # A-aligned direction
 
-# by-residue records (same values as the _byres.txt output)
+## by-residue records (same values as the _byres.txt output)
 print(result.residues[0])
 
-# write the standard output files and/or a CSV
+## write the standard output files and/or a CSV
 result.write_outputs()
 result.to_csv()
 ```
