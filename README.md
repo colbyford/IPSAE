@@ -1,5 +1,5 @@
-# IPSAE
-Scoring function for interprotein interactions in AlphaFold2, AlphaFold3, and Boltz models.
+# ipSAE
+Scoring function for interprotein interactions in AlphaFold and Boltz models.
 
 Calculates the **ipSAE** score (https://www.biorxiv.org/content/10.1101/2025.02.10.637595v2) as well as **ipTM**, **pDockQ**, **pDockQ2**, and **LIS** for every chain pair in a predicted structure.
 
