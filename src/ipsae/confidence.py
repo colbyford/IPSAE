@@ -178,6 +178,9 @@ def load_af3_confidence(pae_file_path, structure):
 
 def _extract_esmfold2_plddt(data, structure, pae_file_path):
     """Extract per-residue pLDDT for ESMfold2 from residue- or atom-level arrays."""
+    if not isinstance(data, dict):
+        return np.zeros(structure.numres), np.zeros(structure.numres)
+
     if "plddt" not in data:
         return np.zeros(structure.numres), np.zeros(structure.numres)
 
@@ -205,7 +208,9 @@ def _extract_esmfold2_plddt(data, structure, pae_file_path):
 
 def _extract_esmfold2_pae(data, structure, pae_file_path):
     """Extract an ESMfold2 residue-residue PAE matrix and align to structure residues."""
-    if "predicted_aligned_error" in data:
+    if isinstance(data, list):
+        pae_raw = np.array(data)
+    elif "predicted_aligned_error" in data:
         pae_raw = np.array(data["predicted_aligned_error"])
     elif "pae" in data:
         pae_raw = np.array(data["pae"])
@@ -263,10 +268,13 @@ def detect_cif_json_model_type(pae_file_path):
         return "af3"
 
     data = load_json_file(pae_file_path)
-    if "atom_plddts" in data or "chain_pair_iptm" in data:
-        return "af3"
-    if "predicted_aligned_error" in data or "plddt" in data:
+    if isinstance(data, list):
         return "esmfold2"
+    if isinstance(data, dict):
+        if "atom_plddts" in data or "chain_pair_iptm" in data:
+            return "af3"
+        if "predicted_aligned_error" in data or "plddt" in data:
+            return "esmfold2"
     return "af3"
 
 

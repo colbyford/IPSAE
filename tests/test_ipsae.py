@@ -322,3 +322,21 @@ def test_esmfold2_cif_json_scoring_and_detection(tmp_path):
     assert result.get_score("A", "B", "ipTM_af", "asym") == 0
     assert result.get_score("B", "A", "ipSAE", "asym") > result.get_score("A", "B", "ipSAE", "asym")
     assert result.confidence.plddt == pytest.approx(np.full(numres, 90.0))
+
+
+def test_esmfold2_raw_matrix_json_supported(tmp_path):
+    nres = 6
+    cif_path = tmp_path / "model.cif"
+    write_gly_cif(cif_path, [("A", nres), ("B", nres)])
+
+    numres = 2 * nres
+    pae = np.full((numres, numres), 3.0)
+    pae[nres:, :nres] = 1.5
+    json_path = tmp_path / "complex_pae.json"
+    json_path.write_text(json.dumps(pae.tolist()))
+
+    assert detect_model_type(str(json_path), str(cif_path)) == ("esmfold2", "cif")
+    result = ipsae.score_interactions(str(json_path), str(cif_path), 10, 10)
+    assert result.model_type == "esmfold2"
+    assert result.confidence.pae_matrix.shape == (numres, numres)
+    assert result.confidence.plddt == pytest.approx(np.zeros(numres))

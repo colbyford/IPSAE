@@ -52,7 +52,7 @@ Options:
 * `-h, --help` — print usage information
 
 Gzipped PAE files (e.g. `scores.json.gz` as produced by ColabFold) are read transparently. All output files are written to the same folder as the CIF/PDB file.
-For `.cif + .json` inputs, ipSAE distinguishes AF3 vs ESMfold2 from filename/schema keys; ESMfold2 pairwise chain ipTM values are not expected and default to 0.
+For `.cif + .json` inputs, ipSAE distinguishes AF3 vs ESMfold2 from filename/schema keys; ESMfold2 pairwise chain ipTM values are not expected and default to 0. ESMfold2 PAE JSON can be either a keyed object (`predicted_aligned_error`/`pae`) or a raw top-level PAE matrix array.
 
 # Python API
 
