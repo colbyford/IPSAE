@@ -340,3 +340,20 @@ def test_esmfold2_raw_matrix_json_supported(tmp_path):
     assert result.model_type == "esmfold2"
     assert result.confidence.pae_matrix.shape == (numres, numres)
     assert result.confidence.plddt == pytest.approx(np.zeros(numres))
+
+
+def test_esmfold2_raw_matrix_json_gz_supported(tmp_path):
+    nres = 5
+    cif_path = tmp_path / "model.cif"
+    write_gly_cif(cif_path, [("A", nres), ("B", nres)])
+
+    numres = 2 * nres
+    pae = np.full((numres, numres), 2.5)
+    json_gz_path = tmp_path / "complex_pae.json.gz"
+    with gzip.open(json_gz_path, "wt") as handle:
+        json.dump(pae.tolist(), handle)
+
+    assert detect_model_type(str(json_gz_path), str(cif_path)) == ("esmfold2", "cif")
+    result = ipsae.score_interactions(str(json_gz_path), str(cif_path), 10, 10)
+    assert result.model_type == "esmfold2"
+    assert result.confidence.pae_matrix.shape == (numres, numres)

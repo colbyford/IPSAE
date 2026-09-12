@@ -239,6 +239,9 @@ def load_structure(structure_path, file_format=None):
                 if atom['atom_name'] != "CA" and "C1" not in atom['atom_name'] and atom['residue_name'] not in RESIDUE_SET:
                     token_mask.append(0)
 
+    if cif and atomsitefield_dict and not atomsite_validated:
+        validate_cif_atom_site_fields(atomsitefield_dict, structure_path)
+
     numres = len(residues)
     if numres == 0:
         raise ValueError(f"No polymer residues found in structure file: {structure_path}")

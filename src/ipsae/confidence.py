@@ -188,8 +188,9 @@ def _extract_esmfold2_plddt(data, structure, pae_file_path):
     if raw_plddt.ndim != 1:
         raise ValueError(f"ESMfold2 pLDDT must be a 1D array in: {pae_file_path}")
 
-    # Convert normalized [0,1] values to [0,100] when needed.
-    if raw_plddt.size > 0 and np.max(raw_plddt) <= 1.0:
+    # Convert normalized [0,1] values to [0,100] when needed (NaN-tolerant).
+    finite_plddt = raw_plddt[np.isfinite(raw_plddt)]
+    if finite_plddt.size > 0 and np.max(finite_plddt) <= 1.0:
         raw_plddt = 100.0 * raw_plddt
 
     if raw_plddt.shape[0] == structure.numres:
