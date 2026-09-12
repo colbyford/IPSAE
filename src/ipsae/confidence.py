@@ -276,9 +276,11 @@ def detect_cif_json_model_type(pae_file_path):
     if isinstance(data, list):
         return "esmfold2"
     if isinstance(data, dict):
-        if "atom_plddts" in data or "chain_pair_iptm" in data:
+        if "atom_plddts" in data or "chain_pair_iptm" in data or "atom_chain_ids" in data:
             return "af3"
         if "predicted_aligned_error" in data:
+            return "esmfold2"
+        if "pae" in data:
             return "esmfold2"
         raise ValueError(
             f"Cannot detect model type from .cif + JSON schema in: {pae_file_path}; "
