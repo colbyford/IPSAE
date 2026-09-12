@@ -91,7 +91,7 @@ def test_detect_model_type():
 
 
 def test_detect_model_type_esmfold2_pae_key_dict(tmp_path):
-    pae_path = tmp_path / "scores.json"
+    pae_path = tmp_path / "esmfold2_scores.json"
     pae_path.write_text(json.dumps({"pae": [[0.2, 0.3], [0.4, 0.2]]}))
     assert detect_model_type(str(pae_path), "model.cif") == ("esmfold2", "cif")
 

@@ -280,8 +280,6 @@ def detect_cif_json_model_type(pae_file_path):
             return "af3"
         if "predicted_aligned_error" in data:
             return "esmfold2"
-        if "pae" in data:
-            return "esmfold2"
         raise ValueError(
             f"Cannot detect model type from .cif + JSON schema in: {pae_file_path}; "
             "use --model {af2,af3,boltz2,esmfold2}.")
