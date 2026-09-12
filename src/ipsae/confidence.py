@@ -274,8 +274,6 @@ def detect_cif_json_model_type(pae_file_path):
     if isinstance(data, dict):
         if "atom_plddts" in data or "chain_pair_iptm" in data:
             return "af3"
-        if "predicted_aligned_error" in data or "plddt" in data:
-            return "esmfold2"
     return "af3"
 
 
