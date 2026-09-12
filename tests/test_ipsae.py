@@ -80,13 +80,35 @@ def test_detect_model_type():
     assert detect_model_type("scores.json.gz", "model.pdb") == ("af2", "pdb")
     assert detect_model_type("scores.pkl", "model.pdb") == ("af2", "pdb")
     assert detect_model_type("full_data_0.json", "model.cif") == ("af3", "cif")
+    assert detect_model_type("esmfold2_complex_pae.json", "model.cif") == ("esmfold2", "cif")
     assert detect_model_type("full_data_0.json.gz", "model.cif") == ("af3", "cif")
     assert detect_model_type("pae_model.npz", "model.cif") == ("boltz", "cif")
     assert detect_model_type("pae_model.npz", "model.pdb") == ("boltz", "pdb")
+    with pytest.raises(FileNotFoundError):
+        detect_model_type("scores.json", "model.cif")
     with pytest.raises(ValueError):
         detect_model_type("scores.txt", "model.pdb")
     with pytest.raises(ValueError):
         detect_model_type("scores.json", "model.xyz")
+
+
+def test_detect_model_type_esmfold2_pae_key_dict(tmp_path):
+    pae_path = tmp_path / "esmfold2_scores.json"
+    pae_path.write_text(json.dumps({"pae": [[0.2, 0.3], [0.4, 0.2]]}))
+    assert detect_model_type(str(pae_path), "model.cif") == ("esmfold2", "cif")
+
+
+def test_detect_model_type_unknown_cif_json_schema_raises(tmp_path):
+    pae_path = tmp_path / "scores.json"
+    pae_path.write_text(json.dumps({"foo": 1}))
+    with pytest.raises(ValueError):
+        detect_model_type(str(pae_path), "model.cif")
+
+
+def test_detect_model_type_af3_marker_wins_over_pae(tmp_path):
+    pae_path = tmp_path / "scores.json"
+    pae_path.write_text(json.dumps({"atom_chain_ids": ["A", "A"], "pae": [[0.2, 0.3], [0.4, 0.2]]}))
+    assert detect_model_type(str(pae_path), "model.cif") == ("af3", "cif")
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +218,32 @@ def write_gly_pdb(path, chain_specs, spacing=2.0):
     path.write_text("".join(lines) + "END\n")
 
 
+def write_gly_cif(path, chain_specs, spacing=2.0):
+    """Write a synthetic mmCIF with one GLY CA atom per residue."""
+    lines = [
+        "data_model\n",
+        "loop_\n",
+        "_atom_site.group_PDB\n",
+        "_atom_site.id\n",
+        "_atom_site.type_symbol\n",
+        "_atom_site.label_atom_id\n",
+        "_atom_site.label_comp_id\n",
+        "_atom_site.label_asym_id\n",
+        "_atom_site.label_seq_id\n",
+        "_atom_site.Cartn_x\n",
+        "_atom_site.Cartn_y\n",
+        "_atom_site.Cartn_z\n",
+    ]
+    serial = 0
+    for offset, (chain, nres) in enumerate(chain_specs):
+        for resnum in range(1, nres + 1):
+            serial += 1
+            x, y, z = float(resnum), offset * spacing, 0.0
+            lines.append(f"ATOM {serial} C CA GLY {chain} {resnum} {x:.3f} {y:.3f} {z:.3f}\n")
+    lines.append("#\n")
+    path.write_text("".join(lines))
+
+
 def test_max_scores_with_non_alphabetical_chain_order(tmp_path):
     """Chain B before chain A in the file: the pair maximum must still be the
     maximum over both asymmetric directions (bug in the original script)."""
@@ -271,3 +319,99 @@ def test_boltz_pair_chains_iptm_used(tmp_path):
     assert result.get_score("B", "A", "ipTM_af", "asym") == pytest.approx(0.66)
     # the "max" row reports the larger of the two Boltz ipTM values
     assert result.get_score("A", "B", "ipTM_af", "max") == pytest.approx(0.77)
+
+
+def test_esmfold2_cif_json_scoring_and_detection(tmp_path):
+    nres = 8
+    cif_path = tmp_path / "esmfold2_model.cif"
+    write_gly_cif(cif_path, [("A", nres), ("B", nres)])
+
+    numres = 2 * nres
+    pae = np.full((numres, numres), 4.0)
+    pae[nres:, :nres] = 2.0
+    pae[:nres, nres:] = 7.0
+    json_path = tmp_path / "esmfold2_complex_pae.json"
+    json_path.write_text(json.dumps({
+        "predicted_aligned_error": pae.tolist(),
+        "plddt": [0.9] * numres,
+    }))
+
+    assert detect_model_type(str(json_path), str(cif_path)) == ("esmfold2", "cif")
+    result = ipsae.score_interactions(str(json_path), str(cif_path), 10, 10)
+
+    assert result.model_type == "esmfold2"
+    assert result.get_score("A", "B", "ipTM_af", "asym") == 0
+    assert result.get_score("B", "A", "ipSAE", "asym") > result.get_score("A", "B", "ipSAE", "asym")
+    assert result.confidence.plddt == pytest.approx(np.full(numres, 90.0))
+
+
+def test_esmfold2_raw_matrix_json_supported(tmp_path):
+    nres = 6
+    cif_path = tmp_path / "model.cif"
+    write_gly_cif(cif_path, [("A", nres), ("B", nres)])
+
+    numres = 2 * nres
+    pae = np.full((numres, numres), 3.0)
+    pae[nres:, :nres] = 1.5
+    json_path = tmp_path / "complex_pae.json"
+    json_path.write_text(json.dumps(pae.tolist()))
+
+    assert detect_model_type(str(json_path), str(cif_path)) == ("esmfold2", "cif")
+    result = ipsae.score_interactions(str(json_path), str(cif_path), 10, 10)
+    assert result.model_type == "esmfold2"
+    assert result.confidence.pae_matrix.shape == (numres, numres)
+    assert result.confidence.plddt == pytest.approx(np.zeros(numres))
+
+
+def test_esmfold2_raw_matrix_json_gz_supported(tmp_path):
+    nres = 5
+    cif_path = tmp_path / "model.cif"
+    write_gly_cif(cif_path, [("A", nres), ("B", nres)])
+
+    numres = 2 * nres
+    pae = np.full((numres, numres), 4.0)
+    pae[nres:, :nres] = 2.0
+    pae[:nres, nres:] = 7.0
+    json_gz_path = tmp_path / "complex_pae.json.gz"
+    with gzip.open(json_gz_path, "wt") as handle:
+        json.dump(pae.tolist(), handle)
+
+    assert detect_model_type(str(json_gz_path), str(cif_path)) == ("esmfold2", "cif")
+    result = ipsae.score_interactions(str(json_gz_path), str(cif_path), 10, 10)
+    assert result.model_type == "esmfold2"
+    assert result.confidence.pae_matrix.shape == (numres, numres)
+    assert result.confidence.plddt == pytest.approx(np.zeros(numres))
+    assert result.get_score("A", "B", "ipTM_af", "asym") == 0
+    assert result.get_score("B", "A", "ipSAE", "asym") > result.get_score("A", "B", "ipSAE", "asym")
+
+
+def test_cli_model_flag_esmfold2(tmp_path, monkeypatch):
+    nres = 6
+    cif_path = tmp_path / "model.cif"
+    write_gly_cif(cif_path, [("A", nres), ("B", nres)])
+    pae = np.full((2 * nres, 2 * nres), 3.0)
+    pae_path = tmp_path / "raw_pae.json"
+    pae_path.write_text(json.dumps(pae.tolist()))
+
+    monkeypatch.chdir(tmp_path)
+    exit_code = cli_main([pae_path.name, cif_path.name, "10", "10", "--model", "esmfold2"])
+    assert exit_code == 0
+    assert (tmp_path / "model_10_10.txt").exists()
+
+
+def test_boltz2_model_alias_in_api(tmp_path):
+    payload = {"pair_chains_iptm": {"0": {"0": 0.0, "1": 0.77}, "1": {"0": 0.66, "1": 0.0}}}
+    pae_path, pdb_path = make_boltz_inputs(tmp_path, payload)
+    result = ipsae.score_interactions(str(pae_path), str(pdb_path), 10, 10, model_type="boltz2")
+    assert result.model_type == "boltz"
+    assert result.get_score("A", "B", "ipTM_af", "asym") == pytest.approx(0.77)
+
+
+def test_esmfold2_invalid_top_level_json_type_raises(tmp_path):
+    nres = 4
+    cif_path = tmp_path / "model.cif"
+    write_gly_cif(cif_path, [("A", nres), ("B", nres)])
+    pae_path = tmp_path / "bad.json"
+    pae_path.write_text(json.dumps("not-a-matrix"))
+    with pytest.raises(ValueError):
+        ipsae.score_interactions(str(pae_path), str(cif_path), 10, 10, model_type="esmfold2")

@@ -7,9 +7,10 @@
 # commercial use, as long as this information is reproduced.
 
 from dataclasses import dataclass, field
+import os
 from typing import Dict, List, Optional
 
-from .confidence import ConfidenceData, load_confidence
+from .confidence import ConfidenceData, detect_cif_json_model_type, load_confidence
 from .outputs import (
     build_chain_pair_groups,
     build_residue_records,
@@ -22,22 +23,53 @@ from .parsers import Structure, load_structure
 from .scoring import ScoreResults, compute_scores
 
 
+def normalize_model_type(model_type):
+    """Normalize user-facing model names to internal identifiers."""
+    value = str(model_type).lower()
+    if value == "boltz2":
+        return "boltz"
+    if value in ("af2", "af3", "boltz", "esmfold2"):
+        return value
+    raise ValueError("Unknown model type: "
+                     f"{model_type} (expected one of af2, af3, boltz2, esmfold2)")
+
+
+def detect_file_format(structure_file):
+    """Detect structure file format from filename extension."""
+    structure_lower = structure_file.lower()
+    if structure_lower.endswith(".pdb"):
+        return "pdb"
+    if structure_lower.endswith(".cif"):
+        return "cif"
+    raise ValueError(f"Wrong structure file type (expected .pdb or .cif): {structure_file}")
+
+
 def detect_model_type(pae_file, structure_file):
     """Detect the prediction software from the file extensions.
 
-    Returns (model_type, file_format) where model_type is 'af2', 'af3', or
-    'boltz' and file_format is 'pdb' or 'cif'. Gzip-compressed JSON PAE files
-    (``.json.gz``) and AF2 pickle files (``.pkl``) are also recognized.
+    Returns (model_type, file_format) where model_type is 'af2', 'af3',
+    'esmfold2', or 'boltz' and file_format is 'pdb' or 'cif'. Gzip-compressed
+    JSON PAE files (``.json.gz``) and AF2 pickle files (``.pkl``) are also
+    recognized.
     """
-    pae_is_json = pae_file.endswith(".json") or pae_file.endswith(".json.gz")
+    pae_file_lower = pae_file.lower()
+    structure_basename = structure_file.lower()
+    pae_is_json = pae_file_lower.endswith(".json") or pae_file_lower.endswith(".json.gz")
 
-    if ".pdb" in structure_file and (pae_is_json or pae_file.endswith(".pkl")):
+    if structure_basename.endswith(".pdb") and (pae_is_json or pae_file_lower.endswith(".pkl")):
         return "af2", "pdb"
-    elif ".cif" in structure_file and pae_is_json:
-        return "af3", "cif"
-    elif ".cif" in structure_file and pae_file.endswith(".npz"):  # Boltz1/2 in cif format
+    elif structure_basename.endswith(".cif") and pae_is_json:
+        if not os.path.exists(pae_file):
+            basename = os.path.basename(pae_file_lower)
+            if "full_data" in basename or "confidences" in basename:
+                return "af3", "cif"
+            if "esmfold" in basename:
+                return "esmfold2", "cif"
+            raise FileNotFoundError(f"PAE file does not exist: {pae_file}")
+        return detect_cif_json_model_type(pae_file), "cif"
+    elif structure_basename.endswith(".cif") and pae_file_lower.endswith(".npz"):  # Boltz1/2 in cif format
         return "boltz", "cif"
-    elif ".pdb" in structure_file and pae_file.endswith(".npz"):  # Boltz1/2 in pdb format
+    elif structure_basename.endswith(".pdb") and pae_file_lower.endswith(".npz"):  # Boltz1/2 in pdb format
         return "boltz", "pdb"
     raise ValueError(f"Wrong PDB or PAE file type: {structure_file} / {pae_file}")
 
@@ -133,13 +165,14 @@ class IPSAEResult:
 
 
 def score_interactions(pae_file, structure_file, pae_cutoff=10.0, dist_cutoff=10.0, model_type=None):
-    """Score all pairwise chain-chain interactions of an AF2/AF3/Boltz model.
+    """Score all pairwise chain-chain interactions of an AF2/AF3/ESMfold2/Boltz model.
 
     Parameters
     ----------
     pae_file : str
         PAE file: AF2 scores ``.json``/``.json.gz``/``.pkl``, AF3
-        full-data/confidences ``.json``/``.json.gz``, or Boltz ``pae_*.npz``.
+        full-data/confidences ``.json``/``.json.gz``, ESMfold2 PAE
+        ``.json``/``.json.gz``, or Boltz ``pae_*.npz``.
     structure_file : str
         Model coordinates: ``.pdb`` (AF2/Boltz) or ``.cif`` (AF3/Boltz).
     pae_cutoff : float
@@ -147,7 +180,8 @@ def score_interactions(pae_file, structure_file, pae_cutoff=10.0, dist_cutoff=10
     dist_cutoff : float
         CA-CA distance cutoff (Angstroms) for interface residue counts.
     model_type : str, optional
-        'af2', 'af3', or 'boltz'; detected from the file extensions if omitted.
+        'af2', 'af3', 'boltz2', or 'esmfold2'; detected from file extension and
+        JSON schema if omitted.
 
     Returns
     -------
@@ -156,7 +190,8 @@ def score_interactions(pae_file, structure_file, pae_cutoff=10.0, dist_cutoff=10
     if model_type is None:
         model_type, file_format = detect_model_type(pae_file, structure_file)
     else:
-        _, file_format = detect_model_type(pae_file, structure_file)
+        model_type = normalize_model_type(model_type)
+        file_format = detect_file_format(structure_file)
 
     pae_cutoff = float(pae_cutoff)
     dist_cutoff = float(dist_cutoff)

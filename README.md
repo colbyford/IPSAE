@@ -31,6 +31,11 @@ AlphaFold3:
      ipsae <path_to_af3_json_file> <path_to_af3_cif_file> <pae_cutoff> <dist_cutoff>
      ipsae fold_aurka_tpx2_full_data_0.json fold_aurka_tpx2_model_0.cif 10 10
 
+ESMfold2:
+
+     ipsae <path_to_esmfold2_pae_json_file> <path_to_esmfold2_cif_file> <pae_cutoff> <dist_cutoff>
+     ipsae esmfold2_complex_pae.json esmfold2_complex.cif 10 10
+
 Boltz1/Boltz2:
 
      ipsae <path_to_boltz_pae_npz_file> <path_to_boltz_cif_file> <pae_cutoff> <dist_cutoff>
@@ -42,11 +47,13 @@ The legacy invocation is unchanged:
 
 Options:
 
+* `--model <af2|af3|boltz2|esmfold2>` — explicitly set the prediction source (recommended for `.cif + .json` inputs)
 * `--csv` — additionally write the chain-pair scores as a machine-readable CSV file
 * `--version` — print the version and exit
 * `-h, --help` — print usage information
 
 Gzipped PAE files (e.g. `scores.json.gz` as produced by ColabFold) are read transparently. All output files are written to the same folder as the CIF/PDB file.
+For `.cif + .json` inputs, use `--model` to avoid ambiguity between AF3 and ESMfold2. If omitted, ipSAE falls back to filename/schema heuristics. ESMfold2 pairwise chain ipTM values are not expected and default to 0. ESMfold2 PAE JSON can be either a keyed object (`predicted_aligned_error`/`pae`) or a raw top-level PAE matrix array.
 
 # Python API
 

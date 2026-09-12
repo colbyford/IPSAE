@@ -16,7 +16,7 @@ import numpy as np
 
 from .utils import init_chainpairdict_zeros
 
-MODEL_TYPES = ("af2", "af3", "boltz")
+MODEL_TYPES = ("af2", "af3", "boltz", "esmfold2")
 
 
 def load_json_file(path):
@@ -176,6 +176,120 @@ def load_af3_confidence(pae_file_path, structure):
     )
 
 
+def _extract_esmfold2_plddt(data, structure, pae_file_path):
+    """Extract per-residue pLDDT for ESMfold2 from residue- or atom-level arrays."""
+    if not isinstance(data, dict):
+        return np.zeros(structure.numres), np.zeros(structure.numres)
+
+    if "plddt" not in data:
+        return np.zeros(structure.numres), np.zeros(structure.numres)
+
+    raw_plddt = np.array(data["plddt"])
+    if raw_plddt.ndim != 1:
+        raise ValueError(f"ESMfold2 pLDDT must be a 1D array in: {pae_file_path}")
+
+    # Convert normalized [0,1] values to [0,100] when needed (NaN-tolerant).
+    finite_plddt = raw_plddt[np.isfinite(raw_plddt)]
+    if finite_plddt.size > 0 and np.max(finite_plddt) <= 1.0:
+        raw_plddt = 100.0 * raw_plddt
+
+    if raw_plddt.shape[0] == structure.numres:
+        plddt = raw_plddt
+        cb_plddt = raw_plddt
+    elif raw_plddt.shape[0] > np.max(structure.CB_atom_num):
+        plddt = raw_plddt[structure.CA_atom_num]
+        cb_plddt = raw_plddt[structure.CB_atom_num]
+    else:
+        raise ValueError(
+            f"ESMfold2 pLDDT length ({raw_plddt.shape[0]}) does not match the number of residues "
+            f"({structure.numres}) and is too short for atom indexing in: {pae_file_path}")
+
+    return plddt, cb_plddt
+
+
+def _extract_esmfold2_pae(data, structure, pae_file_path):
+    """Extract an ESMfold2 residue-residue PAE matrix and align to structure residues."""
+    if isinstance(data, list):
+        pae_raw = np.array(data)
+    elif isinstance(data, dict):
+        if "predicted_aligned_error" in data:
+            pae_raw = np.array(data["predicted_aligned_error"])
+        elif "pae" in data:
+            pae_raw = np.array(data["pae"])
+        else:
+            raise ValueError(
+                f"No PAE data ('predicted_aligned_error' or 'pae') in ESMfold2 file: {pae_file_path}")
+    else:
+        raise ValueError(
+            f"Unsupported top-level JSON type for ESMfold2 PAE file (expected list or dict): {pae_file_path}")
+
+    if pae_raw.shape == (structure.numres, structure.numres):
+        return pae_raw
+
+    token_array = structure.token_array
+    if pae_raw.shape == (len(token_array), len(token_array)):
+        return pae_raw[np.ix_(token_array.astype(bool), token_array.astype(bool))]
+
+    raise ValueError(
+        f"ESMfold2 PAE matrix shape {pae_raw.shape} does not match residues "
+        f"({structure.numres}, {structure.numres}) or token-array shape "
+        f"({len(token_array)}, {len(token_array)}) for: {pae_file_path}")
+
+
+def load_esmfold2_confidence(pae_file_path, structure):
+    """Load ESMfold2 confidence data from a PAE ``.json``/``.json.gz`` file.
+
+    ESMfold2 outputs may provide ``predicted_aligned_error`` (or ``pae``) and
+    residue-level ``plddt`` values; pairwise chain ipTM values are not expected.
+    """
+    if not os.path.exists(pae_file_path):
+        raise FileNotFoundError(f"ESMfold2 PAE file does not exist: {pae_file_path}")
+
+    data = load_json_file(pae_file_path)
+    plddt, cb_plddt = _extract_esmfold2_plddt(data, structure, pae_file_path)
+    pae_matrix = _extract_esmfold2_pae(data, structure, pae_file_path)
+
+    unique_chains = structure.unique_chains
+    iptm_esmfold2 = init_chainpairdict_zeros(unique_chains)
+
+    return ConfidenceData(
+        model_type='esmfold2',
+        pae_matrix=pae_matrix,
+        plddt=plddt,
+        cb_plddt=cb_plddt,
+        iptm_pairs=iptm_esmfold2,
+    )
+
+
+def detect_cif_json_model_type(pae_file_path):
+    """Detect model type for ``.cif`` + JSON inputs ('af3' vs 'esmfold2')."""
+    basename = os.path.basename(pae_file_path).lower()
+    if "full_data" in basename or "confidences" in basename:
+        return "af3"
+    if "esmfold" in basename:
+        return "esmfold2"
+
+    if not os.path.exists(pae_file_path):
+        raise FileNotFoundError(f"PAE file does not exist: {pae_file_path}")
+
+    data = load_json_file(pae_file_path)
+    if isinstance(data, list):
+        return "esmfold2"
+    if isinstance(data, dict):
+        if "atom_plddts" in data or "chain_pair_iptm" in data or "atom_chain_ids" in data:
+            return "af3"
+        if "predicted_aligned_error" in data:
+            return "esmfold2"
+        if "pae" in data:
+            return "esmfold2"
+        raise ValueError(
+            f"Cannot detect model type from .cif + JSON schema in: {pae_file_path}; "
+            "use --model {af2,af3,boltz2,esmfold2}.")
+    raise ValueError(
+        f"Unsupported top-level JSON type for model detection in: {pae_file_path}; "
+        "use --model {af2,af3,boltz2,esmfold2}.")
+
+
 def load_boltz_confidence(pae_file_path, structure):
     """Load Boltz1/2 confidence data from ``pae_*.npz`` plus companion files.
 
@@ -245,11 +359,13 @@ def load_boltz_confidence(pae_file_path, structure):
 
 
 def load_confidence(pae_file_path, structure, model_type):
-    """Load the confidence data for ``model_type`` ('af2', 'af3', or 'boltz')."""
+    """Load the confidence data for ``model_type`` ('af2', 'af3', 'boltz', 'esmfold2')."""
     if model_type == 'af2':
         return load_af2_confidence(pae_file_path, structure)
     if model_type == 'af3':
         return load_af3_confidence(pae_file_path, structure)
     if model_type == 'boltz':
         return load_boltz_confidence(pae_file_path, structure)
+    if model_type == 'esmfold2':
+        return load_esmfold2_confidence(pae_file_path, structure)
     raise ValueError(f"Unknown model type: {model_type} (expected one of {MODEL_TYPES})")
