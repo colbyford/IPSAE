@@ -26,10 +26,14 @@ from .scoring import ScoreResults, compute_scores
 def normalize_model_type(model_type):
     """Normalize user-facing model names to internal identifiers."""
     value = str(model_type).lower()
-    if value == "boltz2":
+    if value in ("boltz", "boltz2", "boltz1"):
         return "boltz"
-    if value in ("af2", "af3", "boltz", "esmfold2"):
-        return value
+    if value in ("esmfold", "esmfold2"):
+        return "esmfold2"
+    if value in ("af2", "alphafold2"):
+        return "af2"
+    if value in ("af3", "alphafold3"):
+        return "af3"
     raise ValueError("Unknown model type: "
                      f"{model_type} (expected one of af2, af3, boltz2, esmfold2)")
 
@@ -108,6 +112,11 @@ class IPSAEResult:
         return self._groups
 
     @property
+    def model(self) -> str:
+        """Prediction source model type ('af2', 'af3', 'boltz', or 'esmfold2')."""
+        return self.model_type
+
+    @property
     def chain_pairs(self) -> List[Dict]:
         """Chain-pair score records (dicts), one per output row (asym A->B, asym B->A, max)."""
         records = []
@@ -164,7 +173,14 @@ class IPSAEResult:
         return csv_path
 
 
-def score_interactions(pae_file, structure_file, pae_cutoff=10.0, dist_cutoff=10.0, model_type=None):
+def score_interactions(
+    pae_file,
+    structure_file,
+    pae_cutoff=10.0,
+    dist_cutoff=10.0,
+    model_type=None,
+    model=None,
+):
     """Score all pairwise chain-chain interactions of an AF2/AF3/ESMfold2/Boltz model.
 
     Parameters
@@ -174,7 +190,7 @@ def score_interactions(pae_file, structure_file, pae_cutoff=10.0, dist_cutoff=10
         full-data/confidences ``.json``/``.json.gz``, ESMfold2 PAE
         ``.json``/``.json.gz``, or Boltz ``pae_*.npz``.
     structure_file : str
-        Model coordinates: ``.pdb`` (AF2/Boltz) or ``.cif`` (AF3/Boltz).
+        Model coordinates: ``.pdb`` (AF2/Boltz) or ``.cif`` (AF3/Boltz/ESMfold2).
     pae_cutoff : float
         PAE cutoff (Angstroms) for the ipSAE aligned-residue pair selection.
     dist_cutoff : float
@@ -182,15 +198,24 @@ def score_interactions(pae_file, structure_file, pae_cutoff=10.0, dist_cutoff=10
     model_type : str, optional
         'af2', 'af3', 'boltz2', or 'esmfold2'; detected from file extension and
         JSON schema if omitted.
+    model : str, optional
+        Alias for ``model_type``, matching the ``--model`` CLI option.
 
     Returns
     -------
     IPSAEResult
     """
-    if model_type is None:
+    if model is not None and model_type is not None:
+        if normalize_model_type(model) != normalize_model_type(model_type):
+            raise ValueError(
+                f"Conflicting model arguments provided: model={model!r}, model_type={model_type!r}"
+            )
+    chosen_model = model if model is not None else model_type
+
+    if chosen_model is None:
         model_type, file_format = detect_model_type(pae_file, structure_file)
     else:
-        model_type = normalize_model_type(model_type)
+        model_type = normalize_model_type(chosen_model)
         file_format = detect_file_format(structure_file)
 
     pae_cutoff = float(pae_cutoff)

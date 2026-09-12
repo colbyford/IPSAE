@@ -60,9 +60,16 @@ For `.cif + .json` inputs, use `--model` to avoid ambiguity between AF3 and ESMf
 ```python
 from ipsae import score_interactions
 
+# Automatic model detection:
 result = score_interactions("fold_aurka_tpx2_full_data_0.json",
                             "fold_aurka_tpx2_model_0.cif",
                             pae_cutoff=10, dist_cutoff=10)
+
+# Explicit model source ('af2', 'af3', 'boltz2', or 'esmfold2'):
+result = score_interactions("esmfold2_complex_pae.json",
+                            "esmfold2_complex.cif",
+                            pae_cutoff=10, dist_cutoff=10,
+                            model="esmfold2")
 
 ## chain-pair records (asym and max rows, same values as the .txt output)
 for record in result.chain_pairs:

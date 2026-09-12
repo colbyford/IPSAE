@@ -1,4 +1,4 @@
-"""ipsae: scoring pairwise protein-protein interactions in AlphaFold2, AlphaFold3, and Boltz models.
+"""ipsae: scoring pairwise protein-protein interactions in AlphaFold2, AlphaFold3, ESMfold2, and Boltz models.
 
 Calculates the ipSAE score (Dunbrack, https://www.biorxiv.org/content/10.1101/2025.02.10.637595v2)
 as well as:
@@ -10,7 +10,7 @@ Original script by Roland Dunbrack, Fox Chase Cancer Center.
 MIT license: can be modified and redistributed for non-commercial and
 commercial use, as long as this information is reproduced.
 
-Includes support for Boltz structures and structures with nucleic acids.
+Includes support for ESMfold2 models, Boltz structures, and structures with nucleic acids.
 
 Basic usage::
 
@@ -24,9 +24,9 @@ Basic usage::
     result.to_csv()                            # chain-pair scores as CSV
 """
 
-__version__ = "4.1.0"
+__version__ = "4.1.1"
 
-from .api import IPSAEResult, detect_model_type, score_interactions
+from .api import IPSAEResult, detect_file_format, detect_model_type, normalize_model_type, score_interactions
 from .confidence import ConfidenceData, load_confidence
 from .parsers import Structure, load_structure
 from .scoring import (
@@ -42,6 +42,8 @@ __all__ = [
     "score_interactions",
     "IPSAEResult",
     "detect_model_type",
+    "detect_file_format",
+    "normalize_model_type",
     "load_structure",
     "Structure",
     "load_confidence",

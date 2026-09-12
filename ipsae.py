@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # ipsae.py
-# script for calculating the ipSAE score for scoring pairwise protein-protein interactions in AlphaFold2 and AlphaFold3 models
+# script for calculating the ipSAE score for scoring pairwise protein-protein interactions in AlphaFold2, AlphaFold3, ESMfold2, and Boltz models
 # https://www.biorxiv.org/content/10.1101/2025.02.10.637595v2
 
 # Also calculates:
@@ -14,7 +14,7 @@
 # January 3, 2026: Fixed Boltz2 issues (PDB and mmCIF format; chainIDs)
 # MIT license: script can be modified and redistributed for non-commercial and commercial use, as long as this information is reproduced.
 
-# includes support for Boltz structures and structures with nucleic acids
+# includes support for Boltz and ESMfold2 structures and structures with nucleic acids
 
 # This script is a backwards-compatible wrapper around the installable "ipsae"
 # package in src/ipsae. Install the package with:
@@ -28,6 +28,7 @@
 
 #  python ipsae.py <path_to_af2_pae_file>        <path_to_af2_pdb_file>     <pae_cutoff> <dist_cutoff>
 #  python ipsae.py <path_to_af3_pae_file>        <path_to_af3_cif_file>     <pae_cutoff> <dist_cutoff>
+#  python ipsae.py <path_to_esmfold2_pae_file>    <path_to_esmfold2_cif_file> <pae_cutoff> <dist_cutoff>
 #  python ipsae.py <path_to_boltz_pae_npz_file>  <path_to_boltz_cif_file>   <pae_cutoff> <dist_cutoff>
 #  python ipsae.py <path_to_boltz_pae_npz_file>  <path_to_boltz_pdb_file>   <pae_cutoff> <dist_cutoff>
 #

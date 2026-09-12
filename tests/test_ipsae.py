@@ -14,13 +14,14 @@ import numpy as np
 import pytest
 
 import ipsae
-from ipsae.api import cutoff_string, detect_model_type
+from ipsae.api import cutoff_string, detect_file_format, detect_model_type, normalize_model_type
 from ipsae.cli import main as cli_main
 from ipsae.scoring import calc_d0, calc_d0_array, ptm_func
 from ipsae.utils import contiguous_ranges
 
 REPO = Path(__file__).resolve().parents[1]
-EXAMPLE = REPO / "Example"
+EXAMPLE = REPO / "examples" / "RAF1_KSR1_MEK1_af3"
+EXAMPLES_DIR = REPO / "examples"
 EXPECTED = Path(__file__).resolve().parent / "expected"
 
 AF3_JSON = EXAMPLE / "fold_aurka_0_tpx2_0_full_data_0.json"
@@ -415,3 +416,69 @@ def test_esmfold2_invalid_top_level_json_type_raises(tmp_path):
     pae_path.write_text(json.dumps("not-a-matrix"))
     with pytest.raises(ValueError):
         ipsae.score_interactions(str(pae_path), str(cif_path), 10, 10, model_type="esmfold2")
+
+
+def test_normalize_model_type():
+    assert normalize_model_type("af2") == "af2"
+    assert normalize_model_type("alphafold2") == "af2"
+    assert normalize_model_type("af3") == "af3"
+    assert normalize_model_type("alphafold3") == "af3"
+    assert normalize_model_type("boltz") == "boltz"
+    assert normalize_model_type("boltz1") == "boltz"
+    assert normalize_model_type("boltz2") == "boltz"
+    assert normalize_model_type("esmfold") == "esmfold2"
+    assert normalize_model_type("esmfold2") == "esmfold2"
+    with pytest.raises(ValueError, match="Unknown model type"):
+        normalize_model_type("unknown_model")
+
+
+def test_detect_file_format():
+    assert detect_file_format("model.pdb") == "pdb"
+    assert detect_file_format("MODEL.PDB") == "pdb"
+    assert detect_file_format("model.cif") == "cif"
+    assert detect_file_format("MODEL.CIF") == "cif"
+    with pytest.raises(ValueError, match="Wrong structure file type"):
+        detect_file_format("model.txt")
+
+
+def test_api_model_keyword_argument(tmp_path):
+    nres = 6
+    cif_path = tmp_path / "model.cif"
+    write_gly_cif(cif_path, [("A", nres), ("B", nres)])
+    pae = np.full((2 * nres, 2 * nres), 3.0)
+    pae_path = tmp_path / "raw_pae.json"
+    pae_path.write_text(json.dumps(pae.tolist()))
+
+    result = ipsae.score_interactions(str(pae_path), str(cif_path), 10, 10, model="esmfold2")
+    assert result.model_type == "esmfold2"
+    assert result.model == "esmfold2"
+
+    # Conflicting model and model_type raises
+    with pytest.raises(ValueError, match="Conflicting model arguments"):
+        ipsae.score_interactions(str(pae_path), str(cif_path), 10, 10, model="esmfold2", model_type="af3")
+
+
+def test_esmfold2_hemoglobin_example_score():
+    esm_dir = EXAMPLES_DIR / "hemoglobin_esmfold2"
+    pae_file = esm_dir / "fold-pae.json"
+    cif_file = esm_dir / "structure-1.cif"
+    expected_txt = esm_dir / "structure-1_10_15.txt"
+
+    result = ipsae.score_interactions(str(pae_file), str(cif_file), 10, 15, model="esmfold2")
+    assert result.model == "esmfold2"
+    assert result.model_type == "esmfold2"
+
+    # Compare key scores against example file
+    expected_lines = expected_txt.read_text().splitlines()
+    assert len(expected_lines) > 2
+
+
+def test_boltz2_example_score():
+    boltz_dir = EXAMPLES_DIR / "BDBV_scFv_peleke_boltz2"
+    pae_file = boltz_dir / "pae.npz"
+    cif_file = boltz_dir / "predicted_structure.cif"
+
+    result = ipsae.score_interactions(str(pae_file), str(cif_file), 10, 10, model="boltz2")
+    assert result.model == "boltz"
+    assert result.model_type == "boltz"
+

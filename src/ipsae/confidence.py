@@ -42,7 +42,7 @@ def _sibling_path(path, old, new):
 class ConfidenceData:
     """PAE matrix, pLDDT values, and AlphaFold/Boltz ipTM values for one model."""
 
-    model_type: str                 # 'af2', 'af3', or 'boltz'
+    model_type: str                 # 'af2', 'af3', 'boltz', or 'esmfold2'
     pae_matrix: np.ndarray          # numres x numres residue PAE matrix
     plddt: np.ndarray               # per-residue pLDDT (CA atoms)
     cb_plddt: np.ndarray            # per-residue pLDDT (CB atoms; for pDockQ)
