@@ -362,3 +362,25 @@ def test_esmfold2_raw_matrix_json_gz_supported(tmp_path):
     assert result.confidence.plddt == pytest.approx(np.zeros(numres))
     assert result.get_score("A", "B", "ipTM_af", "asym") == 0
     assert result.get_score("B", "A", "ipSAE", "asym") > result.get_score("A", "B", "ipSAE", "asym")
+
+
+def test_cli_model_flag_esmfold2(tmp_path, monkeypatch):
+    nres = 6
+    cif_path = tmp_path / "model.cif"
+    write_gly_cif(cif_path, [("A", nres), ("B", nres)])
+    pae = np.full((2 * nres, 2 * nres), 3.0)
+    pae_path = tmp_path / "raw_pae.json"
+    pae_path.write_text(json.dumps(pae.tolist()))
+
+    monkeypatch.chdir(tmp_path)
+    exit_code = cli_main([pae_path.name, cif_path.name, "10", "10", "--model", "esmfold2"])
+    assert exit_code == 0
+    assert (tmp_path / "model_10_10.txt").exists()
+
+
+def test_boltz2_model_alias_in_api(tmp_path):
+    payload = {"pair_chains_iptm": {"0": {"0": 0.0, "1": 0.77}, "1": {"0": 0.66, "1": 0.0}}}
+    pae_path, pdb_path = make_boltz_inputs(tmp_path, payload)
+    result = ipsae.score_interactions(str(pae_path), str(pdb_path), 10, 10, model_type="boltz2")
+    assert result.model_type == "boltz"
+    assert result.get_score("A", "B", "ipTM_af", "asym") == pytest.approx(0.77)

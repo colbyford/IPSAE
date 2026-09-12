@@ -33,6 +33,7 @@ Usage for Boltz (PDB or mmCIF format):
    ipsae pae_AURKA_TPX2_model_0.npz  AURKA_TPX2_model_0.pdb 10 15
 
 Options:
+   --model      prediction source: af2, af3, boltz2, or esmfold2
    --csv        also write the chain-pair scores as a CSV file
    --version    print the ipsae version and exit
    -h, --help   print this message and exit
@@ -49,7 +50,10 @@ def main(argv=None):
 
     positional = []
     write_csv = False
-    for arg in argv:
+    model_type = None
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
         if arg in ("-h", "--help"):
             print(USAGE)
             return 0
@@ -58,12 +62,21 @@ def main(argv=None):
             return 0
         elif arg == "--csv":
             write_csv = True
+        elif arg.startswith("--model="):
+            model_type = arg.split("=", 1)[1].strip().lower()
+        elif arg == "--model":
+            if i + 1 >= len(argv):
+                print("Missing value for --model (choose af2, af3, boltz2, or esmfold2)")
+                return 1
+            model_type = argv[i + 1].strip().lower()
+            i += 1
         elif arg.startswith("--"):
             print(f"Unknown option: {arg}")
             print(USAGE)
             return 1
         else:
             positional.append(arg)
+        i += 1
 
     if len(positional) < 4:
         print(USAGE)
@@ -78,7 +91,7 @@ def main(argv=None):
         return 1
 
     try:
-        result = score_interactions(pae_file, structure_file, pae_cutoff, dist_cutoff)
+        result = score_interactions(pae_file, structure_file, pae_cutoff, dist_cutoff, model_type=model_type)
     except (OSError, ValueError) as error:
         print(error)
         return 1

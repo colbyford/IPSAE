@@ -22,6 +22,27 @@ from .parsers import Structure, load_structure
 from .scoring import ScoreResults, compute_scores
 
 
+def normalize_model_type(model_type):
+    """Normalize user-facing model names to internal identifiers."""
+    value = str(model_type).lower()
+    if value == "boltz2":
+        return "boltz"
+    if value in ("af2", "af3", "boltz", "esmfold2"):
+        return value
+    raise ValueError("Unknown model type: "
+                     f"{model_type} (expected one of af2, af3, boltz2, esmfold2)")
+
+
+def detect_file_format(structure_file):
+    """Detect structure file format from filename extension."""
+    structure_lower = structure_file.lower()
+    if structure_lower.endswith(".pdb"):
+        return "pdb"
+    if structure_lower.endswith(".cif"):
+        return "cif"
+    raise ValueError(f"Wrong structure file type (expected .pdb or .cif): {structure_file}")
+
+
 def detect_model_type(pae_file, structure_file):
     """Detect the prediction software from the file extensions.
 
@@ -151,7 +172,7 @@ def score_interactions(pae_file, structure_file, pae_cutoff=10.0, dist_cutoff=10
     dist_cutoff : float
         CA-CA distance cutoff (Angstroms) for interface residue counts.
     model_type : str, optional
-        'af2', 'af3', 'esmfold2', or 'boltz'; detected from file extension and
+        'af2', 'af3', 'boltz2', or 'esmfold2'; detected from file extension and
         JSON schema if omitted.
 
     Returns
@@ -161,7 +182,8 @@ def score_interactions(pae_file, structure_file, pae_cutoff=10.0, dist_cutoff=10
     if model_type is None:
         model_type, file_format = detect_model_type(pae_file, structure_file)
     else:
-        _, file_format = detect_model_type(pae_file, structure_file)
+        model_type = normalize_model_type(model_type)
+        file_format = detect_file_format(structure_file)
 
     pae_cutoff = float(pae_cutoff)
     dist_cutoff = float(dist_cutoff)
