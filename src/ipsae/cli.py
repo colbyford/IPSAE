@@ -22,6 +22,10 @@ Usage for AF3 (mmCIF format):
    ipsae <path_to_pae_json_file> <path_to_mmcif_file> <pae_cutoff> <dist_cutoff>
    ipsae fold_aurka_tpx2_full_data_0.json  fold_aurka_tpx2_model_0.cif 10 15
 
+Usage for ESMfold2 (mmCIF format):
+   ipsae <path_to_pae_json_file> <path_to_mmcif_file> <pae_cutoff> <dist_cutoff>
+   ipsae esmfold2_complex_pae.json  esmfold2_complex.cif 10 15
+
 Usage for Boltz (PDB or mmCIF format):
    ipsae <path_to_pae_npz_file> <path_to_mmcif_file> <pae_cutoff> <dist_cutoff>
    ipsae <path_to_pae_npz_file> <path_to_pdb_file> <pae_cutoff> <dist_cutoff>

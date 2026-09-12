@@ -31,6 +31,11 @@ AlphaFold3:
      ipsae <path_to_af3_json_file> <path_to_af3_cif_file> <pae_cutoff> <dist_cutoff>
      ipsae fold_aurka_tpx2_full_data_0.json fold_aurka_tpx2_model_0.cif 10 10
 
+ESMfold2:
+
+     ipsae <path_to_esmfold2_pae_json_file> <path_to_esmfold2_cif_file> <pae_cutoff> <dist_cutoff>
+     ipsae esmfold2_complex_pae.json esmfold2_complex.cif 10 10
+
 Boltz1/Boltz2:
 
      ipsae <path_to_boltz_pae_npz_file> <path_to_boltz_cif_file> <pae_cutoff> <dist_cutoff>
@@ -47,6 +52,7 @@ Options:
 * `-h, --help` — print usage information
 
 Gzipped PAE files (e.g. `scores.json.gz` as produced by ColabFold) are read transparently. All output files are written to the same folder as the CIF/PDB file.
+For `.cif + .json` inputs, ipSAE distinguishes AF3 vs ESMfold2 from filename/schema keys; ESMfold2 pairwise chain ipTM values are not expected and default to 0.
 
 # Python API
 

@@ -24,6 +24,7 @@ RESIDUE_SET = {"ALA", "ARG", "ASN", "ASP", "CYS",
                "DA", "DC", "DT", "DG", "A", "C", "U", "G"}
 
 NUC_RESIDUE_SET = {"DA", "DC", "DT", "DG", "A", "C", "U", "G"}
+REQUIRED_CIF_FIELDS = ('id', 'label_atom_id', 'label_comp_id', 'label_seq_id', 'Cartn_x', 'Cartn_y', 'Cartn_z')
 
 
 def parse_pdb_atom_line(line):
@@ -104,6 +105,18 @@ def parse_cif_atom_line(line, fielddict):
     }
 
 
+def validate_cif_atom_site_fields(fielddict, structure_path):
+    """Validate required mmCIF ``_atom_site`` fields before parsing atom rows."""
+    missing = [field for field in REQUIRED_CIF_FIELDS if field not in fielddict]
+    if missing:
+        missing_string = ", ".join(missing)
+        raise ValueError(
+            f"mmCIF file is missing required _atom_site fields ({missing_string}): {structure_path}")
+    if "auth_asym_id" not in fielddict and "label_asym_id" not in fielddict:
+        raise ValueError(
+            f"mmCIF file must contain _atom_site.auth_asym_id or _atom_site.label_asym_id: {structure_path}")
+
+
 def classify_chains(chains, residue_types):
     """Classify each chain as 'protein' or 'nucleic_acid' from its residue types."""
     chain_types = {}
@@ -171,6 +184,7 @@ def load_structure(structure_path, file_format=None):
     chains = []
     atomsitefield_num = 0
     atomsitefield_dict = {}  # order of atom_site fields in mmCIF files; handles any mmCIF field order
+    atomsite_validated = False
 
     # For af3 and boltz: mask identifying CA atom tokens in plddt vector and pae matrix;
     # skip ligand atom tokens and non-CA-atom tokens in PTMs (those not in RESIDUE_SET)
@@ -188,6 +202,9 @@ def load_structure(structure_path, file_format=None):
 
             if line.startswith("ATOM") or line.startswith("HETATM"):
                 if cif:
+                    if not atomsite_validated:
+                        validate_cif_atom_site_fields(atomsitefield_dict, structure_path)
+                        atomsite_validated = True
                     atom = parse_cif_atom_line(line, atomsitefield_dict)
                 else:
                     atom = parse_pdb_atom_line(line)
