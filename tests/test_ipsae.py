@@ -84,6 +84,8 @@ def test_detect_model_type():
     assert detect_model_type("full_data_0.json.gz", "model.cif") == ("af3", "cif")
     assert detect_model_type("pae_model.npz", "model.cif") == ("boltz", "cif")
     assert detect_model_type("pae_model.npz", "model.pdb") == ("boltz", "pdb")
+    with pytest.raises(FileNotFoundError):
+        detect_model_type("scores.json", "model.cif")
     with pytest.raises(ValueError):
         detect_model_type("scores.txt", "model.pdb")
     with pytest.raises(ValueError):

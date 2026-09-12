@@ -7,6 +7,7 @@
 # commercial use, as long as this information is reproduced.
 
 from dataclasses import dataclass, field
+import os
 from typing import Dict, List, Optional
 
 from .confidence import ConfidenceData, detect_cif_json_model_type, load_confidence
@@ -58,6 +59,13 @@ def detect_model_type(pae_file, structure_file):
     if structure_basename.endswith(".pdb") and (pae_is_json or pae_file_lower.endswith(".pkl")):
         return "af2", "pdb"
     elif structure_basename.endswith(".cif") and pae_is_json:
+        if not os.path.exists(pae_file):
+            basename = os.path.basename(pae_file_lower)
+            if "full_data" in basename or "confidences" in basename:
+                return "af3", "cif"
+            if "esmfold" in basename:
+                return "esmfold2", "cif"
+            raise FileNotFoundError(f"PAE file does not exist: {pae_file}")
         return detect_cif_json_model_type(pae_file), "cif"
     elif structure_basename.endswith(".cif") and pae_file_lower.endswith(".npz"):  # Boltz1/2 in cif format
         return "boltz", "cif"

@@ -270,7 +270,7 @@ def detect_cif_json_model_type(pae_file_path):
         return "esmfold2"
 
     if not os.path.exists(pae_file_path):
-        return "af3"
+        raise FileNotFoundError(f"PAE file does not exist: {pae_file_path}")
 
     data = load_json_file(pae_file_path)
     if isinstance(data, list):
