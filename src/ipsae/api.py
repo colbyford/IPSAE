@@ -30,15 +30,17 @@ def detect_model_type(pae_file, structure_file):
     JSON PAE files (``.json.gz``) and AF2 pickle files (``.pkl``) are also
     recognized.
     """
-    pae_is_json = pae_file.endswith(".json") or pae_file.endswith(".json.gz")
+    pae_file_lower = pae_file.lower()
+    structure_basename = structure_file.lower()
+    pae_is_json = pae_file_lower.endswith(".json") or pae_file_lower.endswith(".json.gz")
 
-    if ".pdb" in structure_file and (pae_is_json or pae_file.endswith(".pkl")):
+    if structure_basename.endswith(".pdb") and (pae_is_json or pae_file_lower.endswith(".pkl")):
         return "af2", "pdb"
-    elif ".cif" in structure_file and pae_is_json:
+    elif structure_basename.endswith(".cif") and pae_is_json:
         return detect_cif_json_model_type(pae_file), "cif"
-    elif ".cif" in structure_file and pae_file.endswith(".npz"):  # Boltz1/2 in cif format
+    elif structure_basename.endswith(".cif") and pae_file_lower.endswith(".npz"):  # Boltz1/2 in cif format
         return "boltz", "cif"
-    elif ".pdb" in structure_file and pae_file.endswith(".npz"):  # Boltz1/2 in pdb format
+    elif structure_basename.endswith(".pdb") and pae_file_lower.endswith(".npz"):  # Boltz1/2 in pdb format
         return "boltz", "pdb"
     raise ValueError(f"Wrong PDB or PAE file type: {structure_file} / {pae_file}")
 
