@@ -96,6 +96,13 @@ def test_detect_model_type_esmfold2_pae_key_dict(tmp_path):
     assert detect_model_type(str(pae_path), "model.cif") == ("esmfold2", "cif")
 
 
+def test_detect_model_type_unknown_cif_json_schema_raises(tmp_path):
+    pae_path = tmp_path / "scores.json"
+    pae_path.write_text(json.dumps({"foo": 1}))
+    with pytest.raises(ValueError):
+        detect_model_type(str(pae_path), "model.cif")
+
+
 # ---------------------------------------------------------------------------
 # Regression tests against the original script's outputs
 # ---------------------------------------------------------------------------
@@ -390,3 +397,13 @@ def test_boltz2_model_alias_in_api(tmp_path):
     result = ipsae.score_interactions(str(pae_path), str(pdb_path), 10, 10, model_type="boltz2")
     assert result.model_type == "boltz"
     assert result.get_score("A", "B", "ipTM_af", "asym") == pytest.approx(0.77)
+
+
+def test_esmfold2_invalid_top_level_json_type_raises(tmp_path):
+    nres = 4
+    cif_path = tmp_path / "model.cif"
+    write_gly_cif(cif_path, [("A", nres), ("B", nres)])
+    pae_path = tmp_path / "bad.json"
+    pae_path.write_text(json.dumps("not-a-matrix"))
+    with pytest.raises(ValueError):
+        ipsae.score_interactions(str(pae_path), str(cif_path), 10, 10, model_type="esmfold2")

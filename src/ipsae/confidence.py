@@ -211,13 +211,17 @@ def _extract_esmfold2_pae(data, structure, pae_file_path):
     """Extract an ESMfold2 residue-residue PAE matrix and align to structure residues."""
     if isinstance(data, list):
         pae_raw = np.array(data)
-    elif "predicted_aligned_error" in data:
-        pae_raw = np.array(data["predicted_aligned_error"])
-    elif "pae" in data:
-        pae_raw = np.array(data["pae"])
+    elif isinstance(data, dict):
+        if "predicted_aligned_error" in data:
+            pae_raw = np.array(data["predicted_aligned_error"])
+        elif "pae" in data:
+            pae_raw = np.array(data["pae"])
+        else:
+            raise ValueError(
+                f"No PAE data ('predicted_aligned_error' or 'pae') in ESMfold2 file: {pae_file_path}")
     else:
         raise ValueError(
-            f"No PAE data ('predicted_aligned_error' or 'pae') in ESMfold2 file: {pae_file_path}")
+            f"Unsupported top-level JSON type for ESMfold2 PAE file (expected list or dict): {pae_file_path}")
 
     if pae_raw.shape == (structure.numres, structure.numres):
         return pae_raw
@@ -278,7 +282,12 @@ def detect_cif_json_model_type(pae_file_path):
             return "esmfold2"
         if "pae" in data:
             return "esmfold2"
-    return "af3"
+        raise ValueError(
+            f"Cannot detect model type from .cif + JSON schema in: {pae_file_path}; "
+            "use --model {af2,af3,boltz2,esmfold2}.")
+    raise ValueError(
+        f"Unsupported top-level JSON type for model detection in: {pae_file_path}; "
+        "use --model {af2,af3,boltz2,esmfold2}.")
 
 
 def load_boltz_confidence(pae_file_path, structure):
