@@ -12,3 +12,6 @@ venv/
 
 # Test caches
 .pytest_cache/
+
+# macOS Crap
+.DS_Store
