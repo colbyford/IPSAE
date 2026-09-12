@@ -276,6 +276,8 @@ def detect_cif_json_model_type(pae_file_path):
             return "af3"
         if "predicted_aligned_error" in data:
             return "esmfold2"
+        if "pae" in data:
+            return "esmfold2"
     return "af3"
 
 
